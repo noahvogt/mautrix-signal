@@ -78,7 +78,9 @@ type SignalBridge struct {
 	puppetsByCustomMXID map[id.UserID]*Puppet
 	puppetsLock         sync.Mutex
 
-	disappearingMessagesManager *DisappearingMessagesManager
+	// disabling disappering messages
+	//
+	// disappearingMessagesManager *DisappearingMessagesManager
 }
 
 var _ bridge.ChildOverride = (*SignalBridge)(nil)
@@ -108,11 +110,13 @@ func (br *SignalBridge) Init() {
 	if len(ss) > 0 && ss != "disable" {
 		br.provisioning = &ProvisioningAPI{bridge: br, log: br.ZLog.With().Str("component", "provisioning").Logger()}
 	}
-	br.disappearingMessagesManager = &DisappearingMessagesManager{
-		DB:     br.DB,
-		Log:    br.ZLog.With().Str("component", "disappearing messages").Logger(),
-		Bridge: br,
-	}
+	// disabling disappering messages
+	//
+	// br.disappearingMessagesManager = &DisappearingMessagesManager{
+	// 	DB:     br.DB,
+	// 	Log:    br.ZLog.With().Str("component", "disappearing messages").Logger(),
+	// 	Bridge: br,
+	// }
 
 	br.Metrics = NewMetricsHandler(br.Config.Metrics.Listen, br.ZLog.With().Str("component", "metrics").Logger(), br.DB)
 	br.MatrixHandler.TrackEventDuration = br.Metrics.TrackMatrixEvent
@@ -191,7 +195,9 @@ func (br *SignalBridge) Start() {
 	if br.Config.Metrics.Enabled {
 		go br.Metrics.Start()
 	}
-	go br.disappearingMessagesManager.StartDisappearingLoop(context.TODO())
+	// disabling disappering messages
+	//
+	// go br.disappearingMessagesManager.StartDisappearingLoop(context.TODO())
 }
 
 func (br *SignalBridge) Stop() {

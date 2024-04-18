@@ -1,4 +1,4 @@
-# mautrix-signal
+# mautrix-signal (patched to ignore incoming message redaction events + message disappearing timers)
 ![Languages](https://img.shields.io/github/languages/top/mautrix/signal.svg)
 [![License](https://img.shields.io/github/license/mautrix/signal.svg)](LICENSE)
 [![GitLab CI](https://mau.dev/mautrix/signal/badges/main/pipeline.svg)](https://mau.dev/mautrix/signal/container_registry)
@@ -19,3 +19,11 @@ Some quick links:
 
 ## Discussion
 Matrix room: [`#signal:maunium.net`](https://matrix.to/#/#signal:maunium.net)
+
+# Workflow
+Start the docker deamon, set the `TAG` shell variable and execute:
+
+	git submodule update --recursive --remote
+	doas docker build -t signal:$TAG . &&
+	doas docker tag signal:$TAG noahvogt/mautrix-signal:$TAG &&
+	doas docker push noahvogt/mautrix-signal:$TAG

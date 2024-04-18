@@ -30,7 +30,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"go.mau.fi/util/exfmt"
 	"go.mau.fi/util/jsontime"
 	"go.mau.fi/util/variationselector"
 	"google.golang.org/protobuf/proto"
@@ -251,7 +250,9 @@ var (
 	_ bridge.Portal                    = (*Portal)(nil)
 	_ bridge.ReadReceiptHandlingPortal = (*Portal)(nil)
 	_ bridge.TypingPortal              = (*Portal)(nil)
-	_ bridge.DisappearingPortal        = (*Portal)(nil)
+	// disabling disappering messages
+	//
+	// _ bridge.DisappearingPortal        = (*Portal)(nil)
 	//_ bridge.MembershipHandlingPortal = (*Portal)(nil)
 	//_ bridge.MetaHandlingPortal = (*Portal)(nil)
 )
@@ -519,9 +520,11 @@ func (portal *Portal) handleMatrixMessage(ctx context.Context, sender *User, evt
 			}
 		} else {
 			portal.storeMessageInDB(ctx, evt.ID, sender.SignalID, msg.GetTimestamp(), 0)
-			if portal.ExpirationTime > 0 {
-				portal.addDisappearingMessage(ctx, evt.ID, uint32(portal.ExpirationTime), true)
-			}
+			// disabling disappering messages
+			//
+			// if portal.ExpirationTime > 0 {
+			// 	portal.addDisappearingMessage(ctx, evt.ID, uint32(portal.ExpirationTime), true)
+			// }
 		}
 	}
 }
@@ -915,8 +918,10 @@ func (portal *Portal) handleSignalDataMessage(source *User, sender *Puppet, msg 
 		portal.handleSignalNormalDataMessage(source, sender, msg)
 	case msg.Reaction != nil:
 		portal.handleSignalReaction(sender, msg.Reaction, msg.GetTimestamp())
-	case msg.Delete != nil:
-		portal.handleSignalDelete(sender, msg.Delete, msg.GetTimestamp())
+	// disabling disappering messages
+	//
+	// case msg.Delete != nil:
+	// 	portal.handleSignalDelete(sender, msg.Delete, msg.GetTimestamp())
 	case msg.GetGroupV2().GetGroupChange() != nil:
 		portal.handleSignalGroupChange(source, sender, msg.GroupV2, msg.GetTimestamp())
 	case msg.StoryContext != nil, msg.GroupCallUpdate != nil:
@@ -985,9 +990,11 @@ func (portal *Portal) applySignalGroupChange(ctx context.Context, source *User, 
 	if groupChange.ModifyAvatar != nil {
 		portal.updateAvatarWithInfo(ctx, source, groupChange, sender)
 	}
-	if groupChange.ModifyDisappearingMessagesDuration != nil {
-		portal.updateExpirationTimer(ctx, *groupChange.ModifyDisappearingMessagesDuration)
-	}
+	// disabling disappering messages
+	//
+	// if groupChange.ModifyDisappearingMessagesDuration != nil {
+	// 	portal.updateExpirationTimer(ctx, *groupChange.ModifyDisappearingMessagesDuration)
+	// }
 	intent := sender.IntentFor(portal)
 	modifyRoles := groupChange.ModifyMemberRoles
 	var err error
@@ -1305,41 +1312,43 @@ func (portal *Portal) handleSignalReaction(sender *Puppet, react *signalpb.DataM
 	}
 }
 
-func (portal *Portal) handleSignalDelete(sender *Puppet, delete *signalpb.DataMessage_Delete, ts uint64) {
-	log := portal.log.With().
-		Str("action", "handle signal delete").
-		Stringer("sender_uuid", sender.SignalID).
-		Uint64("target_msg_ts", delete.GetTargetSentTimestamp()).
-		Uint64("delete_ts", ts).
-		Logger()
-	ctx := log.WithContext(context.TODO())
-	targetMsg, err := portal.bridge.DB.Message.GetAllPartsBySignalID(ctx, sender.SignalID, delete.GetTargetSentTimestamp(), portal.Receiver)
-	if err != nil {
-		log.Err(err).Msg("Failed to get target message from database")
-		return
-	} else if len(targetMsg) == 0 {
-		log.Warn().Msg("Target message not found")
-		return
-	}
-	intent := sender.IntentFor(portal)
-	for _, part := range targetMsg {
-		_, err = intent.RedactEvent(ctx, portal.MXID, part.MXID, mautrix.ReqRedact{
-			TxnID: "mxsg_delete_" + part.MXID.String(),
-		})
-		if err != nil {
-			log.Err(err).
-				Int("part_index", part.PartIndex).
-				Stringer("event_id", part.MXID).
-				Msg("Failed to redact message")
-		}
-		err = part.Delete(ctx)
-		if err != nil {
-			log.Err(err).
-				Int("part_index", part.PartIndex).
-				Msg("Failed to delete message from database")
-		}
-	}
-}
+// disabling disappering messages
+//
+// func (portal *Portal) handleSignalDelete(sender *Puppet, delete *signalpb.DataMessage_Delete, ts uint64) {
+// 	log := portal.log.With().
+// 		Str("action", "handle signal delete").
+// 		Stringer("sender_uuid", sender.SignalID).
+// 		Uint64("target_msg_ts", delete.GetTargetSentTimestamp()).
+// 		Uint64("delete_ts", ts).
+// 		Logger()
+// 	ctx := log.WithContext(context.TODO())
+// 	targetMsg, err := portal.bridge.DB.Message.GetAllPartsBySignalID(ctx, sender.SignalID, delete.GetTargetSentTimestamp(), portal.Receiver)
+// 	if err != nil {
+// 		log.Err(err).Msg("Failed to get target message from database")
+// 		return
+// 	} else if len(targetMsg) == 0 {
+// 		log.Warn().Msg("Target message not found")
+// 		return
+// 	}
+// 	intent := sender.IntentFor(portal)
+// 	for _, part := range targetMsg {
+// 		_, err = intent.RedactEvent(ctx, portal.MXID, part.MXID, mautrix.ReqRedact{
+// 			TxnID: "mxsg_delete_" + part.MXID.String(),
+// 		})
+// 		if err != nil {
+// 			log.Err(err).
+// 				Int("part_index", part.PartIndex).
+// 				Stringer("event_id", part.MXID).
+// 				Msg("Failed to redact message")
+// 		}
+// 		err = part.Delete(ctx)
+// 		if err != nil {
+// 			log.Err(err).
+// 				Int("part_index", part.PartIndex).
+// 				Msg("Failed to delete message from database")
+// 		}
+// 	}
+// }
 
 func (portal *Portal) handleSignalNormalDataMessage(source *User, sender *Puppet, msg *signalpb.DataMessage) {
 	log := portal.log.With().
@@ -1380,17 +1389,21 @@ func (portal *Portal) handleSignalNormalDataMessage(source *User, sender *Puppet
 			continue
 		}
 		portal.storeMessageInDB(ctx, resp.EventID, sender.SignalID, converted.Timestamp, i)
-		if converted.DisappearIn != 0 {
-			portal.addDisappearingMessage(ctx, resp.EventID, converted.DisappearIn, sender.SignalID == source.SignalID)
-			// Ensure portal expiration timer is correct in DMs
-			if portal.implicitlyUpdateExpirationTimer(ctx, converted.DisappearIn) {
-				log.Info().Uint32("new_time", converted.DisappearIn).Msg("Implicitly updated expiration timer")
-				err := portal.Update(ctx)
-				if err != nil {
-					log.Err(err).Msg("Failed to save portal in database after implicitly updating group info")
-				}
-			}
-		}
+		// disabling disappering messages
+		//
+		// if converted.DisappearIn != 0 {
+			 // disabling disappering messages
+
+			 // portal.addDisappearingMessage(ctx, resp.EventID, converted.DisappearIn, sender.SignalID == source.SignalID)
+			 // Ensure portal expiration timer is correct in DMs
+			 // if portal.implicitlyUpdateExpirationTimer(ctx, converted.DisappearIn) {
+			 // 	log.Info().Uint32("new_time", converted.DisappearIn).Msg("Implicitly updated expiration timer")
+			 // 	err := portal.Update(ctx)
+			 // 	if err != nil {
+			 // 		log.Err(err).Msg("Failed to save portal in database after implicitly updating group info")
+			 // 	}
+			 // }
+		// }
 	}
 }
 
@@ -1488,9 +1501,11 @@ func (portal *Portal) storeMessageInDB(ctx context.Context, eventID id.EventID, 
 	}
 }
 
-func (portal *Portal) addDisappearingMessage(ctx context.Context, eventID id.EventID, expireInSeconds uint32, startTimerNow bool) {
-	portal.bridge.disappearingMessagesManager.AddDisappearingMessage(ctx, eventID, portal.MXID, time.Duration(expireInSeconds)*time.Second, startTimerNow)
-}
+// disabling disappering messages
+//
+// func (portal *Portal) addDisappearingMessage(ctx context.Context, eventID id.EventID, expireInSeconds uint32, startTimerNow bool) {
+// 	portal.bridge.disappearingMessagesManager.AddDisappearingMessage(ctx, eventID, portal.MXID, time.Duration(expireInSeconds)*time.Second, startTimerNow)
+// }
 
 func (portal *Portal) MarkDelivered(ctx context.Context, msg *database.Message) {
 	if !portal.IsPrivateChat() {
@@ -1611,7 +1626,9 @@ func (portal *Portal) handleMatrixReadReceipt(sender *User, eventID id.EventID, 
 	}
 	log := logWith.Logger()
 	log.Debug().Msg("Handling Matrix read receipt")
-	portal.ScheduleDisappearing()
+	// disabling disappering messages
+	//
+	// portal.ScheduleDisappearing()
 	ctx := log.WithContext(context.TODO())
 
 	if isExplicit {
@@ -2099,7 +2116,9 @@ func (portal *Portal) UpdateGroupInfo(ctx context.Context, source *User, info *s
 	update = portal.updateName(ctx, info.Title, nil) || update
 	update = portal.updateTopic(ctx, info.Description, nil) || update
 	update = portal.updateAvatarWithInfo(ctx, source, info, nil) || update
-	update = portal.updateExpirationTimer(ctx, info.DisappearingMessagesDuration) || update
+	// disabling disappering messages
+	//
+	// update = portal.updateExpirationTimer(ctx, info.DisappearingMessagesDuration) || update
 	if update {
 		err := portal.Update(ctx)
 		if err != nil {
@@ -2110,36 +2129,40 @@ func (portal *Portal) UpdateGroupInfo(ctx context.Context, source *User, info *s
 	return info
 }
 
-func (portal *Portal) updateExpirationTimer(ctx context.Context, newExpirationTimer uint32) bool {
-	if portal.ExpirationTime == newExpirationTimer {
-		return false
-	}
-	portal.ExpirationTime = newExpirationTimer
-	if portal.MXID != "" {
-		msg := portal.MsgConv.ConvertDisappearingTimerChangeToMatrix(ctx, newExpirationTimer, false)
-		_, err := portal.sendMainIntentMessage(ctx, msg.Content)
-		if err != nil {
-			zerolog.Ctx(ctx).Err(err).Msg("Failed to send notice about disappearing message timer changing")
-		}
-	}
-	return true
-}
+// disabling disappering messages
+//
+// func (portal *Portal) updateExpirationTimer(ctx context.Context, newExpirationTimer uint32) bool {
+// 	if portal.ExpirationTime == newExpirationTimer {
+// 		return false
+// 	}
+// 	portal.ExpirationTime = newExpirationTimer
+// 	if portal.MXID != "" {
+// 		msg := portal.MsgConv.ConvertDisappearingTimerChangeToMatrix(ctx, newExpirationTimer, false)
+// 		_, err := portal.sendMainIntentMessage(ctx, msg.Content)
+// 		if err != nil {
+// 			zerolog.Ctx(ctx).Err(err).Msg("Failed to send notice about disappearing message timer changing")
+// 		}
+// 	}
+// 	return true
+// }
 
-func (portal *Portal) implicitlyUpdateExpirationTimer(ctx context.Context, newExpirationTimer uint32) bool {
-	if portal.ExpirationTime == newExpirationTimer {
-		return false
-	}
-	portal.ExpirationTime = newExpirationTimer
-	if portal.MXID != "" {
-		msg := portal.MsgConv.ConvertDisappearingTimerChangeToMatrix(ctx, newExpirationTimer, false)
-		msg.Content.Body = fmt.Sprintf("Automatically enabled disappearing message timer (%s) because incoming message is disappearing", exfmt.Duration(time.Duration(newExpirationTimer)*time.Second))
-		_, err := portal.sendMainIntentMessage(ctx, msg.Content)
-		if err != nil {
-			zerolog.Ctx(ctx).Err(err).Msg("Failed to send notice about disappearing message timer changing implicitly")
-		}
-	}
-	return true
-}
+// disabling disappering messages
+//
+// func (portal *Portal) implicitlyUpdateExpirationTimer(ctx context.Context, newExpirationTimer uint32) bool {
+// 	if portal.ExpirationTime == newExpirationTimer {
+// 		return false
+// 	}
+// 	portal.ExpirationTime = newExpirationTimer
+// 	if portal.MXID != "" {
+// 		msg := portal.MsgConv.ConvertDisappearingTimerChangeToMatrix(ctx, newExpirationTimer, false)
+// 		msg.Content.Body = fmt.Sprintf("Automatically enabled disappearing message timer (%s) because incoming message is disappearing", exfmt.Duration(time.Duration(newExpirationTimer)*time.Second))
+// 		_, err := portal.sendMainIntentMessage(ctx, msg.Content)
+// 		if err != nil {
+// 			zerolog.Ctx(ctx).Err(err).Msg("Failed to send notice about disappearing message timer changing implicitly")
+// 		}
+// 	}
+// 	return true
+// }
 
 func (portal *Portal) updateName(ctx context.Context, newName string, sender *Puppet) bool {
 	if portal.Name == newName && (portal.NameSet || portal.MXID == "") {
@@ -2459,9 +2482,11 @@ func (portal *Portal) getBridgeInfoStateKey() string {
 	return fmt.Sprintf("net.maunium.signal://signal/%s", portal.ChatID)
 }
 
-func (portal *Portal) ScheduleDisappearing() {
-	portal.bridge.disappearingMessagesManager.ScheduleDisappearingForRoom(context.TODO(), portal.MXID)
-}
+// disabling disappering messages
+//
+// func (portal *Portal) ScheduleDisappearing() {
+// 	portal.bridge.disappearingMessagesManager.ScheduleDisappearingForRoom(context.TODO(), portal.MXID)
+// }
 
 func (portal *Portal) addToPersonalSpace(ctx context.Context, user *User) bool {
 	spaceID := user.GetSpaceRoom(ctx)

@@ -736,7 +736,9 @@ func (user *User) handleReadSelf(evt *events.ReadSelf) {
 			Uint64("msg_timestamp", msg.Timestamp).
 			Stringer("msg_mxid", msg.MXID).
 			Msg("Bridging own read receipt")
-		portal.ScheduleDisappearing()
+		// disabling disappering messages
+		//
+		// portal.ScheduleDisappearing()
 		user.SetLastReadTS(ctx, portal.PortalKey, msg.Timestamp)
 		err := portal.SendReadReceipt(ctx, puppet, msg)
 		if err != nil {
